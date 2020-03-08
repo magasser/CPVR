@@ -1,6 +1,6 @@
 package billard;
 
-import java.awt.Color;
+import java.awt.*;
 import java.util.Arrays;
 
 import ij.ImagePlus;
@@ -22,29 +22,35 @@ public class BillardTracker implements PlugInFilter
         int h1 = ip1.getHeight();
         byte[] pix1 = (byte[]) ip1.getPixels();
 
-        ImagePlus imgGray = NewImage.createByteImage("GrayDeBayered", w1-1, h1-1, 1, NewImage.FILL_BLACK);
+        ImagePlus imgGray = NewImage.createByteImage("GrayDeBayered", w1, h1, 1, NewImage.FILL_BLACK);
         ImageProcessor ipGray = imgGray.getProcessor();
         byte[] pixGray = (byte[]) ipGray.getPixels();
-        int w2 = ipGray.getWidth();
-        int h2 = ipGray.getHeight();
 
         ImagePlus imgRGB = NewImage.createRGBImage("RGBDeBayered", w1, h1, 1, NewImage.FILL_BLACK);
         ImageProcessor ipRGB = imgRGB.getProcessor();
         int[] pixRGB = (int[]) ipRGB.getPixels();
 
-        ImagePlus imgRGB2 = NewImage.createRGBImage("RGBDeBayered2", w1-1, h1-1, 1, NewImage.FILL_BLACK);
-        ImageProcessor ipRGB2 = imgRGB2.getProcessor();
-        int[] pixRGB2 = (int[]) ipRGB2.getPixels();
-
         long msStart = System.currentTimeMillis();
 
-        ImagePlus imgHue = NewImage.createByteImage("Hue", w1-1, h1-1, 1, NewImage.FILL_BLACK);
+        ImagePlus imgHue = NewImage.createByteImage("Hue", w1, h1, 1, NewImage.FILL_BLACK);
         ImageProcessor ipHue = imgHue.getProcessor();
         byte[] pixHue = (byte[]) ipHue.getPixels();
 
-        long startRGB1 = System.currentTimeMillis();
+        ImagePlus imgBayer = NewImage.createRGBImage("Bayer", w1, h1, 1, NewImage.FILL_BLACK);
+        ImageProcessor ipBayer = imgBayer.getProcessor();
+        int[] pixBayer = (int[]) ipBayer.getPixels();
+
+        ImagePlus imgSat = NewImage.createByteImage("Sat", w1, h1, 1, NewImage.FILL_BLACK);
+        ImageProcessor ipSat = imgSat.getProcessor();
+        byte[] pixSat = (byte[]) ipSat.getPixels();
+
+        ImagePlus imgRGB2 = NewImage.createRGBImage("RGBDeBayered2", w1-4, h1-4, 1, NewImage.FILL_BLACK);
+        ImageProcessor ipRGB2 = imgRGB2.getProcessor();
+        int[] pixRGB2 = (int[]) ipRGB2.getPixels();
+
+        long startRGB = System.currentTimeMillis();
         int i1 = 0;
-        for (int y = 0; y < h2; y+=2)
+        /*for (int y = 0; y < h2; y+=2)
         {
             for (int x = 0; x < w2; x+=2)
             {
@@ -53,60 +59,88 @@ public class BillardTracker implements PlugInFilter
                 int g2 = pix1[i1+w1+1];
                 int r1 = pix1[i1+1];
                 int pixel1 = ((b1 & 0xff)<<16)+((g1 & 0xff)<<8) + (r1 & 0xff);
-                int pixel2 = ((b1 & 0xff)<<16)+((g1 & 0xff)<<8) + (r1 & 0xff);
-                int pixel3 = ((b1 & 0xff)<<16)+((g2 & 0xff)<<8) + (r1 & 0xff);
-                int pixel4 = ((b1 & 0xff)<<16)+((g2 & 0xff)<<8) + (r1 & 0xff);
+                int pixel2 = ((b1 & 0xff)<<16)+((g2 & 0xff)<<8) + (r1 & 0xff);
 
-                ipRGB.putPixel(x,y, pixel1);
-                ipRGB.putPixel(x+1,y, pixel2);
-                ipRGB.putPixel(x,y+1, pixel3);
-                ipRGB.putPixel(x+1,y+1, pixel4);
+                // RGB image
+                pixRGB[i1] = pixel1;
+                pixRGB[i1+1] = pixel1;
+                pixRGB[i1+w1] = pixel2;
+                pixRGB[i1+w1+1] = pixel2;
 
-                i1++;
+                // Bayer image
+                pixBayer[i1] = ((b1 & 0xff)<<16);
+                pixBayer[i1+1] = ((g1 & 0xff)<<8);
+                pixBayer[i1+w1] = ((g2 & 0xff)<<8);
+                pixBayer[i1+w1+1] = (r1 & 0xff);
+
+                float[] hsb = Color.RGBtoHSB(b1,g1,b1,null);
+                float[] hsb2 = Color.RGBtoHSB(b1,g2,b1,null);
+
+                // Brightness
+                pixGray[i1] = (byte)(255 * hsb[2]);
+                pixGray[i1+1] = pixGray[i1];
+                pixGray[i1+w1] = (byte)(255 * hsb2[2]);
+                pixGray[i1+w1+1] = pixGray[i1+w1];
+
+                // Hue
+                pixHue[i1] = (byte)(255 * hsb[0]);
+                pixHue[i1+1] = pixHue[i1];
+                pixHue[i1+w1] = (byte)(255 * hsb2[0]);
+                pixHue[i1+w1+1] = pixHue[i1+w1];
+
+                // Saturation
+                pixSat[i1] = (byte)(255 * hsb[1]);
+                pixSat[i1+1] = pixHue[i1];
+                pixSat[i1+w1] = (byte)(255 * hsb2[1]);
+                pixSat[i1+w1+1] = pixHue[i1+w1];
+
+                i1+=2;
             }
             i1+=w1;
-        }
+        }*/
 
-        long timeRGB1 = System.currentTimeMillis() - startRGB1;
+        long timeRGB = System.currentTimeMillis() - startRGB;
 
-        long startRGB2 = System.currentTimeMillis();
-
+        i1 = 2*w1+2;
+        int w2 = ipRGB2.getWidth();
+        int h2 = ipRGB2.getHeight();
         int i2 = 0;
-        for (int y = 0; y < h2-1; y+=2)
-        {
-            for (int x = 0; x < w2-1; x+=2)
-            {
-                int b1 = pix1[i2+w1];
-                int g1 = (pix1[i2] + pix1[i2+w1+1]) / 2;
-                int r1 = pix1[i2+1];
-                int pixel1 = ((b1 & 0xff)<<16)+((g1 & 0xff)<<8) + (r1 & 0xff);
+        for (int y = 0; y < h2; y += 2) {
+            for (int x = 0; x < w2; x += 2) {
 
-                int b2 = pix1[i2+w1+2];
-                int g2 = (pix1[i2+2] + pix1[i2+w1+1]) / 2;
-                int r2 = r1;
-                int pixel2 = ((b2 & 0xff)<<16)+((g2 & 0xff)<<8) + (r2 & 0xff);
+                int p1 = pix1[i1 - w1 - 1];
+                int p2 = pix1[i1 - w1];
+                int p3 = pix1[i1 - w1 + 1];
+                int p4 = pix1[i1 - w1 + 2];
+                int p5 = pix1[i1 - 1];
+                int p6 = pix1[i1];
+                int p7 = pix1[i1 + 1];
+                int p8 = pix1[i1 + 2];
+                int p9 = pix1[i1 + w1 - 1];
+                int p10 = pix1[i1 + w1];
+                int p11 = pix1[i1 + w1 + 1];
+                int p12 = pix1[i1 + w1 + 2];
+                int p13 = pix1[i1 + w1 + w1 - 1];
+                int p14 = pix1[i1 + w1 + w1];
+                int p15 = pix1[i1 + w1 + w1 + 1];
+                int p16 = pix1[i1 + w1 + w1 + 2];
 
-                int b3 = b1;
-                int g3 = (pix1[i2+w1+1] + pix1[i2+w1+w1]) / 2;
-                int r3 = pix1[i2+w1+w1+1];
-                int pixel3 = ((b3 & 0xff)<<16)+((g3 & 0xff)<<8) + (r3 & 0xff);
+                int pixel1 = ((((p2 + p10) / 2) & 0xff) << 16) + ((((p1 + p3 + p6 + p9 + p11) / 5) & 0xff) << 8) + (((p5 + p7) / 2) & 0xff);
+                int pixel2 = ((((p2 + p4 + p10 + p12) / 4) & 0xff) << 16) + ((((p3 + p6 + p8 + p11) / 4) & 0xff) << 8) + (p7 & 0xff);
+                int pixel3 = ((p10 & 0xff) << 16) + ((((p6 + p9 + p11 + p14) / 4) & 0xff) << 8) + (((p5 + p7 + p13 + p15) / 4) & 0xff);
+                int pixel4 = ((((p10 + p12) / 2) & 0xff) << 16) + ((((p6 + p8 + p11 + p14 + p16) / 5) & 0xff) << 8) + (((p7 + p15) / 2) & 0xff);
 
-                int b4 = b2;
-                int g4 = (pix1[i2+w1+1] + pix1[i2+w1+w1+2]) / 2;
-                int r4 = r3;
-                int pixel4 = ((b4 & 0xff)<<16)+((g4 & 0xff)<<8) + (r4 & 0xff);
+                pixRGB2[i2] = pixel1;
+                pixRGB2[i2+1] = pixel2;
+                pixRGB2[i2+w2] = pixel3;
+                pixRGB2[i2+w2+1] = pixel4;
 
-                ipRGB2.putPixel(x,y, pixel1);
-                ipRGB2.putPixel(x+1,y, pixel2);
-                ipRGB2.putPixel(x,y+1, pixel3);
-                ipRGB2.putPixel(x+1,y+1, pixel4);
-
+                i1+=2;
                 i2+=2;
             }
-            i2 += w1 + 2;
+            i2+=w2;
+            i1+=w1;
         }
-
-        long timeRGB2 = System.currentTimeMillis() - startRGB2;
 
 
         long ms = System.currentTimeMillis() - msStart;
@@ -116,10 +150,12 @@ public class BillardTracker implements PlugInFilter
 
         PNG_Writer png = new PNG_Writer();
         try
-        {   png.writeImage(imgRGB , "resources/Billard1024x544x3.png",  0);
-            png.writeImage(imgRGB2 , "resources/Billard1024x544x32.png",  0);
-            //png.writeImage(imgHue,  "../../Images/Billard1024x544x1H.png", 0);
-            //png.writeImage(imgGray, "../../Images/Billard1024x544x1B.png", 0);
+        {   //png.writeImage(imgRGB , "generated/Billard2048x1088x3.png",  0);
+            png.writeImage(imgRGB2 , "generated/Billard2048x1088_2x3.png",  0);
+            //png.writeImage(imgHue,  "generated/Billard2048x1088x1H.png", 0);
+            //png.writeImage(imgGray, "generated/Billard2048x1088x1B.png", 0);
+            //png.writeImage(imgBayer, "generated/Billard2048x1088x1Ba.png", 0);
+            //png.writeImage(imgBayer, "generated/Billard2048x1088x1S.png", 0);
 
         } catch (Exception e)
         {   e.printStackTrace();
@@ -127,14 +163,18 @@ public class BillardTracker implements PlugInFilter
 
         //imgGray.show();
         //imgGray.updateAndDraw();
-        imgRGB.show();
-        imgRGB.updateAndDraw();
-        imgRGB2.show();
-        imgRGB2.updateAndDraw();
+        //imgRGB.show();
+        //imgRGB.updateAndDraw();
         //imgHue.show();
         //imgHue.updateAndDraw();
+        //imgBayer.show();
+        //imgBayer.updateAndDraw();
+        //imgSat.show();
+        //imgSat.updateAndDraw();
+        imgRGB2.show();
+        imgRGB2.updateAndDraw();
 
-        System.out.println("Time RGB1: " + timeRGB1 + ", Time RGB2: " + timeRGB2);
+        System.out.println("Time RGB: " + timeRGB);
     }
 
     public static void main(String[] args)
